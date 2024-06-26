@@ -1,0 +1,6 @@
+,LoanID,Age,Income,LoanAmount,CreditScore,MonthsEmployed,NumCreditLines,InterestRate,LoanTerm,DTIRatio,EmploymentType,MaritalStatus,HasMortgage,HasDependents,HasCoSigner,Default,Education: Bachelor's,Education: Master's,Education: High School,Education: PhD,LoanPurpose: Other,LoanPurpose: Auto,LoanPurpose: Business,LoanPurpose: Home,LoanPurpose: Education
+0,I38PQUQS96,,85994,50587,520,80,4,15.23,36,0.44,Full-time,Divorced,Yes,Yes,Yes,0,1,0,0,0,1,0,0,0,0
+1,HPSK72WA7R,69,50432,124440,458,15,1,4.81,60,0.68,Full-time,Married,No,No,Yes,0,0,1,0,0,1,0,0,0,0
+2,C1OZ6DPJ8Y,46,84208,129188,451,26,3,21.17,24,0.31,Unemployed,Divorced,Yes,Yes,No,1,0,1,0,0,0,1,0,0,0
+3,V2KKSFM3UN,32,31713,44799,743,0,3,7.07,24,0.23,Full-time,Married,No,No,No,0,0,0,1,0,0,0,1,0,0
+4,EY08JDHTZP,60,20437,9139,633,8,4,6.51,48,0.73,Unemployed,Divorced,No,Yes,No,0,1,0,0,0,0,1,0,0,0
