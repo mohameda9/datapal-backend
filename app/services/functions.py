@@ -38,5 +38,15 @@ def onehotEncoding(df, column_name, column_defs = None):
 
     # Drop the original column
     df_copy.drop(columns=[column_name], inplace=True)
-    df_copy[:40].to_csv("test.csv")
     return df_copy
+
+
+#----------
+
+def normalize_column(df, column_name, new_min = 0, new_max =0):
+    df[column_name] = pd.to_numeric(df[column_name])
+    print(type(new_min))
+    min_val = df[column_name].min()
+    max_val = df[column_name].max()
+    df[column_name] = (df[column_name] - min_val) / (max_val - min_val) * (new_max - new_min) + new_min
+    return df
