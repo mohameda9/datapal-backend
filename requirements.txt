@@ -11,10 +11,11 @@ requests
 statsmodels
 yfinance
 datetime
+
 # FastAPI and its dependencies
 fastapi
 uvicorn[standard]
 
-#supabase stuff
+# supabase stuff
 supabase
 python-dotenv
