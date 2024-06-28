@@ -1,5 +1,7 @@
 from fastapi import FastAPI
-from app.routes import model
+from app.routes import processing_router
+from app.routes import mlrouter
+
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -19,7 +21,11 @@ app.add_middleware(
 )
 
 
-app.include_router(model.router)
+app.include_router(processing_router.router)
+app.include_router(mlrouter.router)
+
+
+
 
 # TODO: save model to db and make it reusable (app.post("/training-environment")).
 # TODO:
