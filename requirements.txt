@@ -1,4 +1,4 @@
-# Data Science Libraries
+# Data science libraries
 numpy
 pandas
 matplotlib
@@ -16,6 +16,6 @@ datetime
 fastapi
 uvicorn[standard]
 
-# supabase stuff
+# supabase and its dependencies
 supabase
 python-dotenv

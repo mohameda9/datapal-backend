@@ -1,8 +1,8 @@
-# Stealth-Startup: The Ultimate Data Science Platform
+# *DataPal*: The Ultimate Data Science Platform
 
 ## Quick Local Setup
 
-Embark on your journey with the most badass data science platform with just a few simple steps.
+Embark on your journey with the greatest data science platform in just a few simple steps.
 
 ### Prerequisites:
 - **Visual Studio Code**: Ensure VS Code is installed on your system.
@@ -23,11 +23,9 @@ Your local setup is now primed and ready.
 Get your data science platform up and running with these steps:
 
 1. Open a terminal in VS Code.
-2. Execute the command: `uvicorn app.main:app --reload`
-3. Go to: `http://127.0.0.1:8000/docs`
-
-This command will start the server with live reloading, streamlining your development workflow.
+2. Execute `uvicorn app.main:app --reload`. This command will start the server with live reloading, streamlining your development workflow.
+3. Go to `http://127.0.0.1:8000/docs` to start testing the back-end!
 
 ---
 
-Dive into data science with Stealth-Startup!
+Dive into data science with *DataPal*!
