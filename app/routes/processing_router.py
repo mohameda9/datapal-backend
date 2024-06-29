@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 """API routers for feature engineering functions"""
+=======
+from app.routes.common_router_functions import *
+from typing import Dict, Any
+
+>>>>>>> 8ec7a50 (updated column creation)
 
 from typing import Dict
 from fastapi import APIRouter
@@ -14,6 +20,9 @@ async def hello_processing(x):
     """Test router"""
     print("Hello processing:", x)
     return x
+
+class columnCreationInput(BaseModel):
+    columnCreationInput: Dict
 
 
 class OneHotDefs(BaseModel):
@@ -34,6 +43,29 @@ async def one_hot_encoding(data: Data, column_name):
     return {"message": "Data received", "data": df.to_json(orient="records")}
 
 
+
+@router.post("/columnCreation")
+async def createNewColumn(data: Data, columnCreationInput:Dict[str, Any]):
+    #-----extract relevant informatioon
+    print(columnCreationInput)
+
+    df = convert_to_df(data )
+
+    columnCreationInput = funs.preprocess_column_creation_input(columnCreationInput)
+
+    df = funs.newColumn_from_condition(columnCreationInput, df)
+    print(df)
+
+    return {"message": "Data received", "data": df.to_json(orient='records')}
+
+
+
+
+
+
+
+
+
 @router.post("/scale")
 async def scale_column(data: Data, column_name, method,
                        new_min: int = 0, new_max: int = 1):
@@ -51,4 +83,18 @@ async def scale_column(data: Data, column_name, method,
     else:
         raise f"{method} not a valid method"
 
+<<<<<<< HEAD
     return {"message": "Data received", "data": df.to_json(orient="records")}
+=======
+    return {"message": "Data received", "data": df.to_json(orient='records')}
+
+
+
+
+ 
+@router.get("/test")
+async def test(k):
+    print(k)
+    return k
+    
+>>>>>>> 8ec7a50 (updated column creation)

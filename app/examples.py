@@ -42,3 +42,47 @@ OneHotDefs = {
     "OneHotDefs": {}
   }
 }
+<<<<<<< HEAD
+=======
+
+
+columnCreation = {
+  "columnName": "New Column",
+  "conditionGroups": [
+    {
+      "conditions": [
+        {
+          "column": "age",
+          "operator": ">",
+          "value": "30"
+        },
+        {
+          "column": "income",
+          "operator": "=",
+          "value": "50000"
+        }
+      ],
+      "result": "High Income",
+      "resultType": "value"
+    },
+    {
+      "conditions": [
+        {
+          "column": "age",
+          "operator": "<=",
+          "value": "30"
+        },
+        {
+          "column": "status",
+          "operator": "isin",
+          "value": ["single", "divorced"]
+        }
+      ],
+      "result": "Low Income",
+      "resultType": "expression"
+    }
+  ],
+  "elseValue": "Unknown",
+  "elseValueType": "expression"
+}
+>>>>>>> 8ec7a50 (updated column creation)

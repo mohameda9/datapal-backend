@@ -52,5 +52,95 @@ def normalize_column(df, column_name, new_min=0, new_max=0):
     min_val = df[column_name].min()
     max_val = df[column_name].max()
     df[column_name] = (df[column_name] - min_val) / (max_val - min_val) * (new_max - new_min) + new_min
+<<<<<<< HEAD:app/services/processing_service.py
 
+=======
+    return df
+
+
+import pandas as pd
+
+
+
+def preprocess_column_creation_input(columnCreationInput):
+    def parse_value(value):
+        if isinstance(value, str):
+            if value.isdigit():
+                return int(value)
+            try:
+                return float(value)
+            except ValueError:
+                pass
+        return value
+
+    for group in columnCreationInput['conditionGroups']:
+         group['result'] = group['result'].replace('model.', '')
+    
+
+    columnCreationInput['defaultValue'] = columnCreationInput['defaultValue'].replace('model.', '')
+
+    return columnCreationInput
+
+
+
+
+def newColumn_from_condition(columnCreationInput, df):
+
+    def evaluate_condition(row, condition):
+        if condition['operator'] == '>':
+            return row[condition['column']] > condition['value']
+        elif condition['operator'] == '>=':
+            return row[condition['column']] >= condition['value']
+        elif condition['operator'] == '<':
+            return row[condition['column']] < condition['value']
+        elif condition['operator'] == '<=':
+            return row[condition['column']] <= condition['value']
+        elif condition['operator'] == '=':
+            return row[condition['column']] == condition['value']
+        elif condition['operator'] == 'isin':
+            return row[condition['column']] in condition['value']
+        elif condition['operator'] == 'contains':
+            return condition['value'] in row[condition['column']]
+
+    def evaluate_conditions(row, conditions):
+        return all(evaluate_condition(row, condition) for condition in conditions)
+
+    # Preprocess the columnCreationInput to remove "model." prefix
+    if   len(columnCreationInput['conditionGroups'])>0:
+        columnCreationInput = preprocess_column_creation_input(columnCreationInput)
+
+    result_column = []
+
+    for _, row in df.iterrows():
+        if not columnCreationInput['conditionGroups']:
+            else_expression = columnCreationInput['defaultValue']
+            try:
+                else_result = pd.eval(else_expression, local_dict=row.to_dict())
+            except Exception as e:
+                else_result = f"Error: {e}"
+            result_column.append(else_result)
+
+        else:
+            matched = False
+            for group in columnCreationInput['conditionGroups']:
+                if evaluate_conditions(row, group['conditions']):
+
+                    expression = group['result']
+                    try:
+                        result = pd.eval(expression, local_dict=row.to_dict())
+                    except Exception as e:
+                        result = f"Error: {e}"
+                    result_column.append(result)
+                matched = True
+                break
+            if not matched:
+                else_expression = columnCreationInput['defaultValue']
+                try:
+                    else_result = pd.eval(else_expression, local_dict=row.to_dict())
+                except Exception as e:
+                    else_result = f"Error: {e}"
+                result_column.append(else_result)
+
+    df[columnCreationInput['columnName']] = result_column
+>>>>>>> 8ec7a50 (updated column creation):app/services/functions.py
     return df
