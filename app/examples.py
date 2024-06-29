@@ -42,9 +42,6 @@ OneHotDefs = {
     "OneHotDefs": {}
   }
 }
-<<<<<<< HEAD
-=======
-
 
 columnCreation = {
   "columnName": "New Column",
@@ -85,4 +82,3 @@ columnCreation = {
   "elseValue": "Unknown",
   "elseValueType": "expression"
 }
->>>>>>> 8ec7a50 (updated column creation)

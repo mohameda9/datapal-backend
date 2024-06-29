@@ -1,5 +1,5 @@
 """API routers for feature engineering functions"""
-from app.routes.common_router_functions import *
+
 from typing import Dict, Any
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -14,6 +14,7 @@ async def hello_processing(x):
     """Test router"""
     print("Hello processing:", x)
     return x
+
 
 class columnCreationInput(BaseModel):
     columnCreationInput: Dict
@@ -37,13 +38,12 @@ async def one_hot_encoding(data: Data, column_name):
     return {"message": "Data received", "data": df.to_json(orient="records")}
 
 
-
 @router.post("/columnCreation")
-async def createNewColumn(data: Data, columnCreationInput:Dict[str, Any]):
-    #-----extract relevant informatioon
+async def createNewColumn(data: Data, columnCreationInput: Dict[str, Any]):
+    # Extract relevant informatioon
     print(columnCreationInput)
 
-    df = convert_to_df(data )
+    df = convert_to_df(data)
 
     columnCreationInput = funs.preprocess_column_creation_input(columnCreationInput)
 
@@ -51,13 +51,6 @@ async def createNewColumn(data: Data, columnCreationInput:Dict[str, Any]):
     print(df)
 
     return {"message": "Data received", "data": df.to_json(orient='records')}
-
-
-
-
-
-
-
 
 
 @router.post("/scale")
