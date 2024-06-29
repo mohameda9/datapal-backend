@@ -49,6 +49,7 @@ async def createNewColumn(data: Data, columnCreationInput: Dict[str, Any]):
 
     df = funs.newColumn_from_condition(columnCreationInput, df)
     print(df)
+    df.fillna('', inplace = True)
 
     return {"message": "Data received", "data": df.to_json(orient='records')}
 
