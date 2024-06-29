@@ -1,5 +1,6 @@
+"""Example data with correct format for testing the API"""
 
-Data ={
+Data = {
   "data": [
     {
       "columns": ["Header1", "Header2", "Header3"]
@@ -17,25 +18,24 @@ Data ={
 }
 
 OneHotDefs = {
-  "OneHotDefs": {"test":[1]}
+  "OneHotDefs": {"test": [1]}
 }
-
 
 {
   "data": {
     "data": [
       {
-      "columns": ["Header1", "Header2", "Header3"]
-    },
-    {
-      "columns": ["Row1Col1", "Row1Col2", "Row1Col3"]
-    },
-    {
-      "columns": ["Row2Col1", "Row2Col2", "Row2Col3"]
-    },
-    {
-      "columns": ["Row3Col1", "Row3Col2", "Row3Col3"]
-    }
+        "columns": ["Header1", "Header2", "Header3"]
+      },
+      {
+        "columns": ["Row1Col1", "Row1Col2", "Row1Col3"]
+      },
+      {
+        "columns": ["Row2Col1", "Row2Col2", "Row2Col3"]
+      },
+      {
+        "columns": ["Row3Col1", "Row3Col2", "Row3Col3"]
+      }
     ]
   },
   "column_defs": {
