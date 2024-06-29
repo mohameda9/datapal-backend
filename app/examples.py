@@ -82,3 +82,23 @@ columnCreation = {
   "elseValue": "Unknown",
   "elseValueType": "expression"
 }
+
+
+# linear_regression
+independent_variable = "age"
+fit_intercept = True
+positive = False
+
+{
+  "data": {
+    "data": [
+      {"columns": ["age", "salary", "children"]},
+      {"columns": ["17", "2000", "0"]},
+      {"columns": ["30", "50000", "2"]},
+      {"columns": ["45", "80000", "3"]}
+    ]
+  },
+  "dependent_variables": {
+    "column_names": ["salary", "children"]
+  }
+}
