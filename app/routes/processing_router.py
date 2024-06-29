@@ -1,12 +1,6 @@
-<<<<<<< HEAD
 """API routers for feature engineering functions"""
-=======
 from app.routes.common_router_functions import *
 from typing import Dict, Any
-
->>>>>>> 8ec7a50 (updated column creation)
-
-from typing import Dict
 from fastapi import APIRouter
 from pydantic import BaseModel
 from app.services import processing_service as funs
@@ -83,18 +77,4 @@ async def scale_column(data: Data, column_name, method,
     else:
         raise f"{method} not a valid method"
 
-<<<<<<< HEAD
     return {"message": "Data received", "data": df.to_json(orient="records")}
-=======
-    return {"message": "Data received", "data": df.to_json(orient='records')}
-
-
-
-
- 
-@router.get("/test")
-async def test(k):
-    print(k)
-    return k
-    
->>>>>>> 8ec7a50 (updated column creation)
