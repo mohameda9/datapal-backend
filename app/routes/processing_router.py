@@ -41,14 +41,14 @@ async def one_hot_encoding(data: Data, column_name):
 @router.post("/columnCreation")
 async def createNewColumn(data: Data, columnCreationInput: Dict[str, Any]):
     # Extract relevant informatioon
-    print(columnCreationInput)
+
+
 
     df = convert_to_df(data)
 
     columnCreationInput = funs.preprocess_column_creation_input(columnCreationInput)
 
     df = funs.newColumn_from_condition(columnCreationInput, df)
-    print(df)
     #df.fillna('', inplace = True)
 
     return {"message": "Data received", "data": df.to_json(orient='records')}

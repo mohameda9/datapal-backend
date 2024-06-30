@@ -201,7 +201,6 @@ def preprocess_column_creation_input(columnCreationInput):
             condition_config["value"] = parse_value(condition_config["value"])
 
     columnCreationInput['defaultValue'] = columnCreationInput['defaultValue'].replace('model.', 'df.')
-    print(columnCreationInput)
     return columnCreationInput
 
 def newColumn_from_condition(columnCreationInput, df):
@@ -243,16 +242,16 @@ def newColumn_from_condition(columnCreationInput, df):
                     result_column.append(result)
                 matched = True
                 break
-            if not matched:
-                else_result = columnCreationInput['defaultValue']
-                if columnCreationInput["defaultValueType"] =="value":
-                            result_column.append(else_result)
-                else:
-                    try:
-                        else_result = transform_and_execute(else_result, df.iloc[[i]].reset_index()).iloc[0]
-                    except Exception as e:
-                        else_result = f"Error: {e}"
-                    result_column.append(else_result)
+        if not matched:
+            else_result = columnCreationInput['defaultValue']
+            if columnCreationInput["defaultValueType"] =="value":
+                        result_column.append(else_result)
+            else:
+                try:
+                    else_result = transform_and_execute(else_result, df.iloc[[i]].reset_index()).iloc[0]
+                except Exception as e:
+                    else_result = f"Error: {e}"
+                result_column.append(else_result)
 
     df[columnCreationInput['columnName']] = result_column
     return df
