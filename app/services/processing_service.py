@@ -1,8 +1,141 @@
-"""Feature engineering functions"""
-
 import pandas as pd
+import re
+from collections import deque
 
-# df = pd.read_csv("Loan_default 2.csv")
+def shunting_yard(expression):
+    # Define operator precedence and associativity
+    precedence = {'+': 1, '-': 1, '*': 2, '/': 2, '^': 3}
+    associativity = {'+': 'L', '-': 'L', '*': 'L', '/': 'L', '^': 'R'}
+    
+    output = []
+    operators = deque()
+    
+    # Tokenize the input expression
+    tokens = re.findall(r'\s*([\+\-\*/\^\(\)]|\d*\.?\d+|df\.\w+)\s*', expression)
+    
+    for token in tokens:
+        if re.match(r'\d*\.?\d+|df\.\w+', token):
+            output.append(token)
+        elif token in precedence:
+            while (operators and operators[-1] != '(' and
+                   (associativity[token] == 'L' and precedence[token] <= precedence[operators[-1]]) or
+                   (associativity[token] == 'R' and precedence[token] < precedence[operators[-1]])):
+                output.append(operators.pop())
+            operators.append(token)
+        elif token == '(':
+            operators.append(token)
+        elif token == ')':
+            while operators and operators[-1] != '(':
+                output.append(operators.pop())
+            operators.pop()
+    
+    while operators:
+        output.append(operators.pop())
+    
+    return output
+
+def evaluate_rpn(rpn, df):
+    stack = deque()
+    
+    for token in rpn:
+        if re.match(r'\d*\.?\d+', token):
+            stack.append(pd.Series([float(token)] * len(df)))
+        elif re.match(r'df\.\w+', token):
+            column_name = re.findall(r'df\.(\w+)', token)[0]
+            stack.append(df[column_name])
+        else:
+            b = stack.pop()
+            a = stack.pop()
+            if token == '+':
+                stack.append(a + b)
+            elif token == '-':
+                stack.append(a - b)
+            elif token == '*':
+                stack.append(a * b)
+            elif token == '/':
+                stack.append(a / b)
+            elif token == '^':
+                stack.append(a ** b)
+    
+    return stack.pop()
+
+def transform_and_execute(expression, df):
+    rpn = shunting_yard(expression)
+    result = evaluate_rpn(rpn, df)
+    return result
+
+# Sample DataFrame
+data = {'age': [25, 30, 35], 'Income': [50000, 60000, 70000]}
+df = pd.DataFrame(data)
+
+# Example expression
+import pandas as pd
+import re
+from collections import deque
+
+def shunting_yard(expression):
+    # Define operator precedence and associativity
+    precedence = {'+': 1, '-': 1, '*': 2, '/': 2, '^': 3}
+    associativity = {'+': 'L', '-': 'L', '*': 'L', '/': 'L', '^': 'R'}
+    
+    output = []
+    operators = deque()
+    
+    # Tokenize the input expression
+    tokens = re.findall(r'\s*([\+\-\*/\^\(\)]|\d*\.?\d+|df\.\w+)\s*', expression)
+    
+    for token in tokens:
+        if re.match(r'\d*\.?\d+|df\.\w+', token):
+            output.append(token)
+        elif token in precedence:
+            while (operators and operators[-1] != '(' and
+                   ((associativity[token] == 'L' and precedence[token] <= precedence[operators[-1]]) or
+                   (associativity[token] == 'R' and precedence[token] < precedence[operators[-1]]))):
+                output.append(operators.pop())
+            operators.append(token)
+        elif token == '(':
+            operators.append(token)
+        elif token == ')':
+            while operators and operators[-1] != '(':
+                output.append(operators.pop())
+            operators.pop()
+    
+    while operators:
+        output.append(operators.pop())
+    
+    return output
+
+def evaluate_rpn(rpn, df):
+    stack = deque()
+    
+    for token in rpn:
+        if re.match(r'\d*\.?\d+', token):
+            stack.append(pd.Series([float(token)] * len(df)))
+        elif re.match(r'df\.\w+', token):
+            column_name = re.findall(r'df\.(\w+)', token)[0]
+            stack.append(df[column_name])
+        else:
+            b = stack.pop()
+            a = stack.pop()
+            if token == '+':
+                stack.append(a + b)
+            elif token == '-':
+                stack.append(a - b)
+            elif token == '*':
+                stack.append(a * b)
+            elif token == '/':
+                stack.append(a / b)
+            elif token == '^':
+                stack.append(a ** b)
+    
+    return stack.pop()
+
+def transform_and_execute(expression, df):
+    rpn = shunting_yard(expression)
+    result = evaluate_rpn(rpn, df)
+    return result
+
+
 
 
 def one_hot_encoding(df, column_name, column_defs=None):
@@ -22,7 +155,6 @@ def one_hot_encoding(df, column_name, column_defs=None):
     if column_defs is None:
         for value in unique_values:
             df_copy[f"{column_name}: {value}"] = df_copy[column_name].apply(lambda x: 1 if x == value else 0)
-
     else:  # probably useless
         all_values_selected = []
         print(unique_values)
@@ -43,17 +175,13 @@ def one_hot_encoding(df, column_name, column_defs=None):
     df_copy.drop(columns=[column_name], inplace=True)
     return df_copy
 
-
 def normalize_column(df, column_name, new_min=0, new_max=0):
     """Normalizes a column in a dataframe to a new range. Default is 0 to 1."""
     df[column_name] = pd.to_numeric(df[column_name])
-    print(type(new_min))
-
     min_val = df[column_name].min()
     max_val = df[column_name].max()
     df[column_name] = (df[column_name] - min_val) / (max_val - min_val) * (new_max - new_min) + new_min
     return df
-
 
 def preprocess_column_creation_input(columnCreationInput):
     def parse_value(value):
@@ -67,15 +195,18 @@ def preprocess_column_creation_input(columnCreationInput):
         return value
 
     for group in columnCreationInput['conditionGroups']:
-        group['result'] = group['result'].replace('model.', '')
+        group['result'] = group['result'].replace('model.', 'df.')
+        group['result'] = parse_value(group['result'])
+        for condition_config in group["conditions"]: 
+            condition_config["value"] = parse_value(condition_config["value"])
 
-    columnCreationInput['defaultValue'] = columnCreationInput['defaultValue'].replace('model.', '')
-
+    columnCreationInput['defaultValue'] = columnCreationInput['defaultValue'].replace('model.', 'df.')
+    print(columnCreationInput)
     return columnCreationInput
-
 
 def newColumn_from_condition(columnCreationInput, df):
     def evaluate_condition(row, condition):
+
         if condition['operator'] == '>':
             return row[condition['column']] > condition['value']
         elif condition['operator'] == '>=':
@@ -94,40 +225,35 @@ def newColumn_from_condition(columnCreationInput, df):
     def evaluate_conditions(row, conditions):
         return all(evaluate_condition(row, condition) for condition in conditions)
 
-    # Preprocess the columnCreationInput to remove "model." prefix
-    if len(columnCreationInput['conditionGroups']) > 0:
-        columnCreationInput = preprocess_column_creation_input(columnCreationInput)
-
     result_column = []
 
-    for _, row in df.iterrows():
-        if not columnCreationInput['conditionGroups']:
-            else_expression = columnCreationInput['defaultValue']
-            try:
-                else_result = pd.eval(else_expression, local_dict=row.to_dict())
-            except Exception as e:
-                else_result = f"Error: {e}"
-            result_column.append(else_result)
-
-        else:
-            matched = False
-            for group in columnCreationInput['conditionGroups']:
-                if evaluate_conditions(row, group['conditions']):
+    for i, row in df.iterrows():
+        matched = False
+        for group in columnCreationInput['conditionGroups']:
+            if evaluate_conditions(row, group['conditions']):
+                if group["resultType"] =="value":
+                    result_column.append(group["result"])
+                else:
                     expression = group['result']
                     try:
-                        result = pd.eval(expression, local_dict=row.to_dict())
+                        result = transform_and_execute(expression, df.iloc[[i]].reset_index()).iloc[0]
+
                     except Exception as e:
                         result = f"Error: {e}"
                     result_column.append(result)
                 matched = True
                 break
             if not matched:
-                else_expression = columnCreationInput['defaultValue']
-                try:
-                    else_result = pd.eval(else_expression, local_dict=row.to_dict())
-                except Exception as e:
-                    else_result = f"Error: {e}"
-                result_column.append(else_result)
+                else_result = columnCreationInput['defaultValue']
+                if columnCreationInput["defaultValueType"] =="value":
+                            result_column.append(else_result)
+                else:
+                    try:
+                        else_result = transform_and_execute(else_result, df.iloc[[i]].reset_index()).iloc[0]
+                    except Exception as e:
+                        else_result = f"Error: {e}"
+                    result_column.append(else_result)
 
     df[columnCreationInput['columnName']] = result_column
     return df
+
