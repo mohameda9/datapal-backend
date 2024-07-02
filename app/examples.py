@@ -85,20 +85,35 @@ columnCreation = {
 
 
 # linear_regression
-independent_variable = "age"
-fit_intercept = True
-positive = False
-
 {
   "data": {
     "data": [
       {"columns": ["age", "salary", "children"]},
       {"columns": ["17", "2000", "0"]},
       {"columns": ["30", "50000", "2"]},
-      {"columns": ["45", "80000", "3"]}
+      {"columns": ["45", "80000", "3"]},
+      {"columns": ["25", "30000", "1"]},
+      {"columns": ["35", "60000", "2"]},
+      {"columns": ["50", "90000", "2"]},
+      {"columns": ["28", "40000", "0"]},
+      {"columns": ["40", "70000", "1"]},
+      {"columns": ["22", "25000", "0"]},
+      {"columns": ["32", "55000", "1"]},
+      {"columns": ["55", "100000", "3"]},
+      {"columns": ["38", "65000", "2"]},
+      {"columns": ["42", "75000", "2"]},
+      {"columns": ["20", "28000", "0"]},
+      {"columns": ["33", "60000", "1"]},
+      {"columns": ["48", "85000", "3"]},
+      {"columns": ["27", "38000", "1"]},
+      {"columns": ["37", "68000", "2"]},
+      {"columns": ["52", "95000", "2"]}
     ]
   },
-  "dependent_variables": {
-    "column_names": ["salary", "children"]
-  }
+  "indep_var": "age",
+  "dep_vars": [
+    "salary", "children"
+  ],
+  "train_size": 0.8,
+  "split_seed": -1
 }
