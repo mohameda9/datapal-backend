@@ -1,6 +1,6 @@
 """API routers for feature engineering functions"""
 
-from typing import Dict, Any
+from typing import List, Dict, Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 from app.services import processing_service as funs
@@ -15,6 +15,10 @@ async def hello_processing(x):
     print("Hello processing:", x)
     return x
 
+class WorkflowAction(BaseModel):
+    title: str
+    description: str
+    data: Dict[str, Any]
 
 class columnCreationInput(BaseModel):
     columnCreationInput: Dict
@@ -24,18 +28,9 @@ class OneHotDefs(BaseModel):
     """One-hot encoding definitions"""
     OneHotDefs: Dict
 
+class Workflow(BaseModel):
+    workflow:list
 
-@router.post("/onehotencoding")
-async def one_hot_encoding(data: Data, column_name):
-    """One-hot encode categorical data"""
-
-    # column_defs = column_defs.OneHotDefs
-    # print(column_defs)
-
-    df = convert_to_df(data)
-    df = funs.one_hot_encoding(df, column_name)
-
-    return {"message": "Data received", "data": df.to_json(orient="records")}
 
 
 @router.post("/columnCreation")
@@ -54,21 +49,39 @@ async def createNewColumn(data: Data, columnCreationInput: Dict[str, Any]):
     return {"message": "Data received", "data": df.to_json(orient='records')}
 
 
-@router.post("/scale")
-async def scale_column(data: Data, column_name, method,
-                       new_min: int = 0, new_max: int = 1):
-    """Scale a column in a dataset"""
+@router.post("/executeWorkflow")
+async def aa(data: Data, workflow: List[Dict]):
+    # Extract relevant informatioon
+    print(workflow)
 
-    # column_defs = column_defs.OneHotDefs
-    # print(column_defs)
     df = convert_to_df(data)
 
-    if method == "normalize":
-        df = funs.normalize_column(df, column_name,
-                                   new_min=new_min, new_max=new_max)
-    elif method == "standardize":
-        pass
-    else:
-        raise f"{method} not a valid method"
+    for action in workflow:
+        if action.get("executed", False):
+            print("aaaa")
+            continue
+        print(action)
+        if action["title"] == "One Hot Encoding":
+            df = funs.one_hot_encoding(df, action["APIdata"]["columnName"])
+        elif action["title"] =="Normalize Column":
+            df = funs.normalize_column(df, action["APIdata"]["columnName"],
+                                   new_min=action["APIdata"]["newMin"], new_max=action["APIdata"]["newMax"])
+        elif action["title"] =="Create New Column":
+            columnCreationInput = funs.preprocess_column_creation_input(action["APIdata"])
+            df = funs.newColumn_from_condition(columnCreationInput, df)
+        print(df)
 
-    return {"message": "Data received", "data": df.to_json(orient="records")}
+
+
+    return {"message": "Data received", "data": df.to_json(orient='records')}
+
+
+
+ 
+
+
+
+
+
+
+

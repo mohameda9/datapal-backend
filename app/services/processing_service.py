@@ -171,8 +171,6 @@ def one_hot_encoding(df, column_name, column_defs=None):
         if len(remaining_values) > 0:
             df_copy["other_" + column_name] = df_copy[column_name].apply(lambda x: 1 if x in remaining_values else 0)
 
-    # Drop the original column
-    df_copy.drop(columns=[column_name], inplace=True)
     return df_copy
 
 def normalize_column(df, column_name, new_min=0, new_max=0):
