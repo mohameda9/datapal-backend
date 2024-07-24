@@ -1,6 +1,8 @@
 import pandas as pd
 import re
 from collections import deque
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, FunctionTransformer, PowerTransformer, normalize
 
 def shunting_yard(expression):
     # Define operator precedence and associativity
@@ -173,13 +175,69 @@ def one_hot_encoding(df, column_name, column_defs=None):
 
     return df_copy
 
-def normalize_column(df, column_name, new_min=0, new_max=0):
-    """Normalizes a column in a dataframe to a new range. Default is 0 to 1."""
-    df[column_name] = pd.to_numeric(df[column_name])
-    min_val = df[column_name].min()
-    max_val = df[column_name].max()
-    df[column_name] = (df[column_name] - min_val) / (max_val - min_val) * (new_max - new_min) + new_min
-    return df
+
+
+
+def scaleColumn(train_df, test_df, column_name, method, fit_on_train=True, **kwargs):
+    if method == "normalize":
+        scaler = MinMaxScaler(feature_range=(kwargs.get('newMin', 0), kwargs.get('newMax', 1)))
+    elif method == "standardize":
+        scaler = StandardScaler()
+    elif method == "robust":
+        scaler = RobustScaler()
+    elif method in ["box-cox", "yeo-johnson"]:
+        scaler = PowerTransformer(method=method)
+    elif method in ["l1", "l2"]:
+        norm = method
+    elif method == "log":
+        base = kwargs.get('base', np.e)
+        log_transform = lambda x: np.log(x) / np.log(base) if base != np.e else np.log1p(x)
+    else:
+        raise ValueError(f"Unknown scaling method: {method}")
+
+    train_values = train_df[[column_name]].values
+    if method in ["l1", "l2"]:
+        if fit_on_train:
+            train_df[[column_name]] = normalize(train_values, norm=norm, axis=0)
+            if test_df is not None:
+                test_values = test_df[[column_name]].values
+                test_df[[column_name]] = normalize(test_values, norm=norm, axis=0)
+        else:
+            combined_values = train_values if test_df is None else np.vstack((train_values, test_df[[column_name]].values))
+            combined_scaled = normalize(combined_values, norm=norm, axis=0)
+            train_df[[column_name]] = combined_scaled[:len(train_df)]
+            if test_df is not None:
+                test_df[[column_name]] = combined_scaled[len(train_df):]
+    elif method == "log":
+        train_df[[column_name]] = log_transform(train_values)
+        if test_df is not None:
+            test_values = test_df[[column_name]].values
+            test_df[[column_name]] = log_transform(test_values)
+    else:
+        if fit_on_train:
+            train_df[[column_name]] = scaler.fit_transform(train_values)
+            if test_df is not None:
+                test_values = test_df[[column_name]].values
+                test_df[[column_name]] = scaler.transform(test_values)
+        else:
+            combined_values = train_values if test_df is None else np.vstack((train_values, test_df[[column_name]].values))
+            combined_scaled = scaler.fit_transform(combined_values)
+            train_df[[column_name]] = combined_scaled[:len(train_df)]
+            if test_df is not None:
+                test_df[[column_name]] = combined_scaled[len(train_df):]
+
+    return train_df, test_df
+
+
+
+
+
+
+
+
+
+
+
 
 def preprocess_column_creation_input(columnCreationInput):
     def parse_value(value):

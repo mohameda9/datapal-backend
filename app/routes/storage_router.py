@@ -18,6 +18,7 @@ class DataInstance(BaseModel):
     dataTypes: dict
     workflow: list
     isCollapsed: bool
+    testData: list
 
 def fix_id(instance):
     instance["id"] = str(instance["_id"])
@@ -32,6 +33,7 @@ async def get_instances():
 @router.post("/api/instances", response_model=DataInstance)
 async def create_instance(instance: DataInstance):
     instance_dict = instance.dict()
+    print(instance_dict)
     instance_dict["_id"] = str(ObjectId())
     await db.instances.insert_one(instance_dict)
     return fix_id(instance_dict)
