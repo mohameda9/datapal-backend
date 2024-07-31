@@ -10,18 +10,30 @@ from app.services.stat_tests import *
 router = APIRouter()
 
 @router.post("/stat")
-async def stat_analysis(data: Data, statConfig: dict):
+async def stat_analysis(data: Data, statConfig: dict, testData: Data = None):
     df = convert_to_df(data)
+    test_df = convert_to_df(testData) if testData else pd.DataFrame()
+
+
+    if statConfig.get("dataSetOption") == "both" and not test_df.empty:
+        df = pd.concat([df, test_df], ignore_index=True)
     result = handle_request(df, statConfig)
-    print(result)
     return result
 
 @router.post("/goodFit")
-async def good_fit_test(data: Data, statConfig: dict):
+async def good_fit_test(data: Data, statConfig: dict, testData: Data = None):
     df = convert_to_df(data)
+    test_df = convert_to_df(testData) if testData else pd.DataFrame()
+
+    if statConfig.get("dataSetOption") == "both" and not test_df.empty:
+        df = pd.concat([df, test_df], ignore_index=True)
+    elif statConfig.get("dataSetOption") == "test" and not test_df.empty:
+        df = test_df
+
     result = handle_good_fit_request(df, statConfig)
-    print(result)
     return result
+
+
 
 def handle_good_fit_request(df, stat_config):
     test_type = stat_config['test']
@@ -33,10 +45,14 @@ def handle_good_fit_request(df, stat_config):
     
     return handle_nan_in_dict(result)
 
+
+
+
 def kolmogorov_smirnov_test(df, values, confidence_level):
     column = values['variable']
     distribution = values['distribution']
-    data = df[column].dropna()
+    data = pd.to_numeric(df[column], errors='coerce').dropna()
+
     
     if distribution == 'normal':
         dist = norm
@@ -53,7 +69,9 @@ def kolmogorov_smirnov_test(df, values, confidence_level):
     elif distribution == 'uniform':
         dist = uniform
         params = dist.fit(data)
-        param_names = ['loc', 'scale']
+        param_names = ['min', 'max']
+        params = (params[0], params[0] + params[1])  # Convert to min and max
+
     elif distribution == 'exponential':
         dist = expon
         params = dist.fit(data)

@@ -14,13 +14,14 @@ from scipy.stats import pearsonr, spearmanr
 def handle_request(df, stat_config):
     test_type = stat_config['test']
     values = stat_config['values']
+    print(values)
     confidence_level = float(values.get('confidence_level', 0.95))
 
     if test_type in ['OneWayANOVA', 'KruskalWallisTest'] and values.get('group_representation') == 'Groups in separate columns':
         df = transform_separate_columns_to_one(df, values)
         
     # Identify numerical columns and convert them to numeric types
-    numeric_columns = [values.get('variable1'), values.get('variable2'), values.get('numeric_variable')]
+    numeric_columns = [values.get('variable'), values.get('variable1'), values.get('variable2'), values.get('numeric_variable')]
     numeric_columns = [col for col in numeric_columns if col in df.columns]
     print(numeric_columns)
     for col in numeric_columns:
@@ -269,12 +270,20 @@ def one_way_anova(df, values, confidence_level):
     numeric_variable = values['numeric_variable']
     categorical_variable = values['categorical_variable']
 
-    formula = f'{numeric_variable} ~ C({categorical_variable})'
-    model = ols(formula, data=df).fit()
+    # Create a copy of the DataFrame with just the relevant columns
+    df_relevant = df[[numeric_variable, categorical_variable]].copy()
+
+    # Create a mapping for renaming columns
+    original_columns = {numeric_variable: 'numeric_variable', categorical_variable: 'categorical_variable'}
+    df_relevant = df_relevant.rename(columns=original_columns)
+
+    # Use the temporary names in the formula
+    formula = 'numeric_variable ~ C(categorical_variable)'
+    model = ols(formula, data=df_relevant).fit()
     anova_table = sm.stats.anova_lm(model, typ=2)
 
-    summary_stats = df.groupby(categorical_variable)[numeric_variable].agg(['count', 'sum', 'mean', 'var']).reset_index()
-    summary_stats = summary_stats.rename(columns={'var': 'variance', categorical_variable: 'group'})
+    summary_stats = df_relevant.groupby('categorical_variable')['numeric_variable'].agg(['count', 'sum', 'mean', 'var']).reset_index()
+    summary_stats = summary_stats.rename(columns={'var': 'variance', 'categorical_variable': 'group'})
 
     # Convert summary statistics to the expected format
     formatted_summary_stats = {}
@@ -289,12 +298,12 @@ def one_way_anova(df, values, confidence_level):
 
     anova_table['mean_sq'] = anova_table['sum_sq'] / anova_table['df']
 
-    df_between = anova_table['df'][0]
-    df_within = anova_table['df'][1]
+    df_between = anova_table['df'].iloc[0]
+    df_within = anova_table['df'].iloc[1]
     f_critical = f.ppf(1 - (1 - confidence_level), df_between, df_within)
 
     # Post hoc analysis using Tukey's HSD
-    tukey = pairwise_tukeyhsd(endog=df[numeric_variable].dropna(), groups=df[categorical_variable].dropna(), alpha=1 - confidence_level)
+    tukey = pairwise_tukeyhsd(endog=df_relevant['numeric_variable'].dropna(), groups=df_relevant['categorical_variable'].dropna(), alpha=1 - confidence_level)
     tukey_summary = tukey.summary().data[1:]
     post_hoc_results = []
     for row in tukey_summary:
@@ -311,17 +320,17 @@ def one_way_anova(df, values, confidence_level):
         })
 
     between_group_summary = {
-        'SS': anova_table['sum_sq'][0],
-        'df': anova_table['df'][0],
-        'MS': anova_table['mean_sq'][0],
-        'F': anova_table['F'][0],
-        'p-value': anova_table['PR(>F)'][0]
+        'SS': anova_table['sum_sq'].iloc[0],
+        'df': anova_table['df'].iloc[0],
+        'MS': anova_table['mean_sq'].iloc[0],
+        'F': anova_table['F'].iloc[0],
+        'p-value': anova_table['PR(>F)'].iloc[0]
     }
 
     within_group_summary = {
-        'SS': anova_table['sum_sq'][1],
-        'df': anova_table['df'][1],
-        'MS': anova_table['mean_sq'][1],
+        'SS': anova_table['sum_sq'].iloc[1],
+        'df': anova_table['df'].iloc[1],
+        'MS': anova_table['mean_sq'].iloc[1],
         'F': None,
         'p-value': None
     }
@@ -340,9 +349,9 @@ def one_way_anova(df, values, confidence_level):
             'test': 'OneWayANOVA',
             'null_hypothesis': f"There is no effect of {categorical_variable} on {numeric_variable}.",
             'alternative_hypothesis': f"There is an effect of {categorical_variable} on {numeric_variable}.",
-            'p_value': anova_table['PR(>F)'][0],
-            'reject_null': "Reject the null hypothesis" if anova_table['PR(>F)'][0] < (1 - confidence_level) else "Fail to reject the null hypothesis",
-            'decision': "Reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100) if anova_table['PR(>F)'][0] < (1 - confidence_level) else "Fail to reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100),
+            'p_value': anova_table['PR(>F)'].iloc[0],
+            'reject_null': "Reject the null hypothesis" if anova_table['PR(>F)'].iloc[0] < (1 - confidence_level) else "Fail to reject the null hypothesis",
+            'decision': "Reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100) if anova_table['PR(>F)'].iloc[0] < (1 - confidence_level) else "Fail to reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100),
         },
         'group_summary': {
             'between_group': between_group_summary,
@@ -355,7 +364,6 @@ def one_way_anova(df, values, confidence_level):
     }
 
     return result
-
 
 
 

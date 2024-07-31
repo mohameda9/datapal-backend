@@ -49,6 +49,7 @@ async def get_instances(user_id: str, project_id: str):
     for instance in instances:
         print("instance:", instance)
         instance_data = instance.to_dict()
+        print(instance_data)
         data_blob = bucket.blob(f"users/{user_id}/projects/{project_id}/datainstances/{instance.id}_data.csv")
         testdata_blob = bucket.blob(f"users/{user_id}/projects/{project_id}/datainstances/{instance.id}_testData.csv")
 
@@ -59,7 +60,6 @@ async def get_instances(user_id: str, project_id: str):
         if testdata_blob.exists():
             testdata_csv = testdata_blob.download_as_text()
             instance_data['testData'] = [row for row in csv.reader(StringIO(testdata_csv))]
-        print("instance data:", instance_data)
         result.append(instance_data)
     return result
 
