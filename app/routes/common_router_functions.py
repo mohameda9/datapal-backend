@@ -2,7 +2,7 @@
 
 from typing import List
 from pydantic import BaseModel
-import pandas as pd
+import pandas as pd,re, numpy as np
 
 
 class DataRow(BaseModel):
@@ -22,5 +22,10 @@ def convert_to_df(data: Data):
 
     # Convert to dataframe (assuming the first row contains headers)
     df = pd.DataFrame(rows[1:], columns=rows[0])
+    df = df.replace(r'^\s*$', np.nan, regex=True)
+    df = df.replace({None: np.nan})
+
+    print(df)
+    print(df.dtypes)
 
     return df

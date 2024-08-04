@@ -4,6 +4,7 @@ from typing import List, Optional
 from app.firebase_init import db, bucket
 from io import StringIO
 import csv
+import pandas as pd
 
 router = APIRouter()
 
@@ -42,26 +43,45 @@ def clean_dict(d):
 
 @router.get("/loadProject/{user_id}/{project_id}", response_model=List[DataInstance])
 async def get_instances(user_id: str, project_id: str):
+    print('loading')
     instances_ref = db.collection('users').document(user_id).collection('projects').document(project_id).collection('datainstances')
     instances = instances_ref.stream()
-    print("instances:", instances)
     result = []
     for instance in instances:
-        print("instance:", instance)
         instance_data = instance.to_dict()
-        print(instance_data)
         data_blob = bucket.blob(f"users/{user_id}/projects/{project_id}/datainstances/{instance.id}_data.csv")
         testdata_blob = bucket.blob(f"users/{user_id}/projects/{project_id}/datainstances/{instance.id}_testData.csv")
 
         if data_blob.exists():
             data_csv = data_blob.download_as_text()
-            instance_data['data'] = [row for row in csv.reader(StringIO(data_csv))]
+            instance_data['data'] = convert_data_types(data_csv, instance_data.get('dataTypes', {}))
 
         if testdata_blob.exists():
             testdata_csv = testdata_blob.download_as_text()
-            instance_data['testData'] = [row for row in csv.reader(StringIO(testdata_csv))]
+            instance_data['testData'] = convert_data_types(testdata_csv, instance_data.get('dataTypes', {}))
+        
         result.append(instance_data)
     return result
+
+def convert_data_types(csv_text, data_types):
+    df = pd.read_csv(StringIO(csv_text))
+    
+    for column, col_type in data_types.items():
+        if col_type == 'numeric':
+            df[column] = pd.to_numeric(df[column], errors='coerce')
+        elif col_type == 'numeric binary':
+            df[column] = pd.to_numeric(df[column], errors='coerce').astype('Int64')
+        elif col_type in ['categorical', 'categorical binary']:
+            df[column] = df[column].astype(str)
+            df[column] = df[column].replace('nan', pd.NA)
+
+    
+    # Replace NaNs with None and convert to list of lists
+    df = df.where(pd.notnull(df), None)
+    print(df)
+    return [df.columns.tolist()] + df.values.tolist()
+
+
 
 
 @router.post("/saveProject/{user_id}/{project_id}")

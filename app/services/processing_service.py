@@ -1,5 +1,5 @@
 import pandas as pd
-import re
+import re, json
 from collections import deque
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, FunctionTransformer, PowerTransformer, normalize
@@ -311,4 +311,158 @@ def newColumn_from_condition(columnCreationInput, df):
 
     df[columnCreationInput['columnName']] = result_column
     return df
+
+
+
+
+
+
+def calculateColumnStats(df, column):
+        try:
+            column_data = df[column].replace(r'^\s*$', np.nan, regex=True).astype(float)
+            print(column_data)
+            print("ssssssss")
+            column_data = column_data.astype(float)
+
+            print(column_data)
+            is_numeric = True
+        except ValueError:
+            column_data = df[column].astype(str)
+            column_data = column_data.replace('nan', pd.NA)
+
+            is_numeric = False
+
+        if is_numeric:
+            # Calculate numeric statistics
+            stats = {
+                "count": int(column_data.count()),
+                "mean": float(column_data.mean()),
+                "median": float(column_data.median()),
+                "std": float(column_data.std()),
+                "var": float(column_data.var()),
+                "min": float(column_data.min()),
+                "25%": float(column_data.quantile(0.25)),
+                "50%": float(column_data.quantile(0.50)),
+                "75%": float(column_data.quantile(0.75)),
+                "max": float(column_data.max()),
+                "missing": int(column_data.isnull().sum())
+            }
+            histogram = np.histogram(column_data.dropna(), bins=20)
+            histogram_data = {
+                "bins": histogram[1].tolist(),
+                "counts": histogram[0].tolist()
+            }
+        else:
+            # Calculate categorical statistics
+            mode = column_data.mode().tolist()
+            stats = {
+                "count": int(column_data.count()),
+                "missing": int(column_data.isnull().sum()),
+                "mode": mode[:min(len(mode),3)]
+            }
+            value_counts = column_data.value_counts().nlargest(10)
+            histogram_data = {
+                "bins": value_counts.index.tolist(),
+                "counts": value_counts.tolist()
+            }
+            print(histogram_data)
+
+        response_data = {
+            "stats": stats,
+            "histogram": histogram_data,
+            "is_numeric": is_numeric
+        }
+        
+        return {"message": "Data received", "data": json.dumps(response_data)}
+
+def handle_missing_values(df, column, method, value=None, group_by=None, interpolate_col=None, consider_nan_as_category=False, fit_to_train=True, test_df=None):
+    if group_by and method in ["Mean", "Median", "Most Common"]:
+        if consider_nan_as_category:
+            df[group_by] = df[group_by].fillna('NaN')
+            if test_df is not None:
+                test_df[group_by] = test_df[group_by].fillna('NaN')
+
+        # Drop rows where group_by column has NaNs
+        df_nonan = df.dropna(subset=[group_by])
+        
+        if method == "Mean":
+            group_means = df_nonan.groupby(group_by)[column].mean()
+            df[column] = df.apply(lambda row: row[column] if pd.notna(row[column]) else group_means.get(row[group_by], pd.NA), axis=1)
+            if test_df is not None:
+                test_df[column] = test_df.apply(lambda row: row[column] if pd.notna(row[column]) else group_means.get(row[group_by], pd.NA), axis=1)
+
+        elif method == "Median":
+            group_medians = df_nonan.groupby(group_by)[column].median()
+            df[column] = df.apply(lambda row: row[column] if pd.notna(row[column]) else group_medians.get(row[group_by], pd.NA), axis=1)
+            if test_df is not None:
+                test_df[column] = test_df.apply(lambda row: row[column] if pd.notna(row[column]) else group_medians.get(row[group_by], pd.NA), axis=1)
+
+        elif method == "Most Common":
+            group_modes = df_nonan.groupby(group_by)[column].apply(lambda x: x.mode().iloc[0] if not x.mode().empty else pd.NA)
+            df[column] = df.apply(lambda row: row[column] if pd.notna(row[column]) else group_modes.get(row[group_by], pd.NA), axis=1)
+            if test_df is not None:
+                test_df[column] = test_df.apply(lambda row: row[column] if pd.notna(row[column]) else group_modes.get(row[group_by], pd.NA), axis=1)
+
+        if consider_nan_as_category:
+            df[group_by] = df[group_by].replace('NaN', pd.NA)
+            if test_df is not None:
+                test_df[group_by] = test_df[group_by].replace('NaN', pd.NA)
+
+    else:
+        if method == "Mean":
+            mean_value = df[column].mean()
+            df[column].fillna(mean_value, inplace=True)
+            if test_df is not None:
+                test_df[column].fillna(mean_value, inplace=True)
+
+        elif method == "Median":
+            median_value = df[column].median()
+            df[column].fillna(median_value, inplace=True)
+            if test_df is not None:
+                test_df[column].fillna(median_value, inplace=True)
+
+        elif method == "Most Common":
+            mode_value = df[column].mode()[0] if not df[column].mode().empty else pd.NA
+            df[column].fillna(mode_value, inplace=True)
+            if test_df is not None:
+                test_df[column].fillna(mode_value, inplace=True)
+
+        elif method == "Assign Value":
+            df[column].fillna(value, inplace=True)
+            if test_df is not None:
+                test_df[column].fillna(value, inplace=True)
+
+        elif method == "Remove Row":
+            df.dropna(subset=[column], inplace=True)
+            if test_df is not None:
+                test_df.dropna(subset=[column], inplace=True)
+
+        elif method == "Interpolate":
+            if interpolate_col:
+                original_index = df.index
+                df = df.sort_values(by=interpolate_col)
+                df[column] = df[column].interpolate()
+                df = df.loc[original_index]
+                if test_df is not None:
+                    original_index_test = test_df.index
+                    test_df = test_df.sort_values(by=interpolate_col)
+                    test_df[column] = test_df[column].interpolate()
+                    test_df = test_df.loc[original_index_test]
+            else:
+                df[column] = df[column].interpolate()
+                if test_df is not None:
+                    test_df[column] = test_df[column].interpolate()
+
+        elif method == "Forward Fill":
+            df[column].fillna(method='ffill', inplace=True)
+            if test_df is not None:
+                test_df[column].fillna(method='ffill', inplace=True)
+
+        elif method == "Back Fill":
+            df[column].fillna(method='bfill', inplace=True)
+            if test_df is not None:
+                test_df[column].fillna(method='bfill', inplace=True)
+
+    return df, test_df
+
 

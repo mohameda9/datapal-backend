@@ -8,24 +8,26 @@ from statsmodels.formula.api import ols
 import statsmodels.api as sm
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 from scipy.stats import pearsonr, spearmanr
+from statsmodels.stats.anova import anova_lm
+from scipy.stats import f_oneway, chi2_contingency
 
 
 
 def handle_request(df, stat_config):
     test_type = stat_config['test']
     values = stat_config['values']
-    print(values)
     confidence_level = float(values.get('confidence_level', 0.95))
 
     if test_type in ['OneWayANOVA', 'KruskalWallisTest'] and values.get('group_representation') == 'Groups in separate columns':
         df = transform_separate_columns_to_one(df, values)
         
-    # Identify numerical columns and convert them to numeric types
-    numeric_columns = [values.get('variable'), values.get('variable1'), values.get('variable2'), values.get('numeric_variable')]
+    numeric_columns = [values.get('variable'), values.get('variable1'), values.get('variable2'), values.get('numeric_variable'), values.get('dependent_variable')]
     numeric_columns = [col for col in numeric_columns if col in df.columns]
-    print(numeric_columns)
     for col in numeric_columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    if test_type != 'IndependentTwoSampleTTest':
+        df = df.dropna()
 
     if test_type == 'OneSampleTTest':
         result = one_sample_ttest(df, values, confidence_level)
@@ -35,11 +37,20 @@ def handle_request(df, stat_config):
         result = kruskal_wallis_test(df, values, confidence_level)
     elif test_type == 'OneWayANOVA':
         result = one_way_anova(df, values, confidence_level)
-
+    elif test_type == 'TwoWayANOVA':
+        result = two_way_anova(df, values, confidence_level)
     elif test_type == 'Correlation':
         result = correlation_test(df, values)
-    
+    elif test_type == 'FTest':
+        result = f_test(df, values, confidence_level)
+    elif test_type == 'ChiSquareTest':
+        print(df)
+        result = chi_square_test(df, values, confidence_level)
+
     return handle_nan_in_dict(result)
+
+
+
 
 def transform_separate_columns_to_one(df, values):
     group_columns = values['group_columns']
@@ -73,7 +84,6 @@ def one_sample_ttest(df, values, confidence_level):
         alternative = 'greater'
 
     t_stat, p_value = ttest_1samp(df[column].dropna(), population_mean, alternative=alternative)
-    ci = calculate_confidence_interval(df[column].dropna(), confidence_level)
     decision = "Reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100) if p_value < (1 - confidence_level) else "Fail to reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100)
 
     if (comparison == '='):
@@ -86,7 +96,7 @@ def one_sample_ttest(df, values, confidence_level):
         null_hypothesis = f"The mean of {column} is <= {population_mean}"
         alternative_hypothesis = f"The mean of {column} is > {population_mean}"
 
-    summary_stats = calculate_summary_statistics(df[column].dropna())
+    summary_stats = calculate_summary_statistics(df[column].dropna(), confidence_level)
 
     return {
         'summary_statistics': { column: summary_stats },
@@ -94,7 +104,6 @@ def one_sample_ttest(df, values, confidence_level):
             'test': 'OneSampleTTest',
             't_stat': t_stat,
             'p_value': p_value,
-            'confidence_intervals': { column: ci },
             'null_hypothesis': null_hypothesis,
             'alternative_hypothesis': alternative_hypothesis,
             'decision': decision
@@ -164,8 +173,8 @@ def two_sample_test(df, values, confidence_level, test_type):
     }
 
     summary_statistics = {
-        group_names[0]: calculate_summary_statistics(group1),
-        group_names[1]: calculate_summary_statistics(group2)
+        group_names[0]: calculate_summary_statistics(group1, confidence_level),
+        group_names[1]: calculate_summary_statistics(group2, confidence_level)
     }
 
     return {
@@ -173,13 +182,6 @@ def two_sample_test(df, values, confidence_level, test_type):
         'test_results': result
     }
 
-def calculate_summary_statistics(data):
-    return {
-        'count': int(len(data)),
-        'sum': float(np.sum(data)),
-        'mean': float(np.mean(data)),
-        'variance': float(np.var(data, ddof=1))
-    }
 
 def kruskal_wallis_test(df, values, confidence_level):
     group_representation = values.get('group_representation')
@@ -219,7 +221,6 @@ def kruskal_wallis_test(df, values, confidence_level):
 
     # Post hoc analysis (if applicable)
     post_hoc_results = dunn_posthoc(model_data[value_col], model_data[group_col])
-    print(post_hoc_results)
     formatted_post_hoc_results = []
     for comparison in post_hoc_results:
         contrast = comparison['contrast']
@@ -269,6 +270,7 @@ def kruskal_wallis_test(df, values, confidence_level):
 def one_way_anova(df, values, confidence_level):
     numeric_variable = values['numeric_variable']
     categorical_variable = values['categorical_variable']
+    anova_type = int(values['anova_type'])  # Retrieve ANOVA type from values
 
     # Create a copy of the DataFrame with just the relevant columns
     df_relevant = df[[numeric_variable, categorical_variable]].copy()
@@ -280,7 +282,7 @@ def one_way_anova(df, values, confidence_level):
     # Use the temporary names in the formula
     formula = 'numeric_variable ~ C(categorical_variable)'
     model = ols(formula, data=df_relevant).fit()
-    anova_table = sm.stats.anova_lm(model, typ=2)
+    anova_table = sm.stats.anova_lm(model, typ=anova_type)
 
     summary_stats = df_relevant.groupby('categorical_variable')['numeric_variable'].agg(['count', 'sum', 'mean', 'var']).reset_index()
     summary_stats = summary_stats.rename(columns={'var': 'variance', 'categorical_variable': 'group'})
@@ -337,13 +339,7 @@ def one_way_anova(df, values, confidence_level):
 
     result = {
         'summary_statistics': formatted_summary_stats,
-        'anova_table': {
-            'SS': anova_table['sum_sq'].tolist(),
-            'df': anova_table['df'].tolist(),
-            'MS': anova_table['mean_sq'].tolist(),
-            'F': anova_table['F'].tolist(),
-            'p-value': anova_table['PR(>F)'].tolist()
-        },
+
         'f_critical': f_critical,
         'test_results': {
             'test': 'OneWayANOVA',
@@ -364,6 +360,8 @@ def one_way_anova(df, values, confidence_level):
     }
 
     return result
+
+
 
 
 
@@ -432,6 +430,103 @@ def dunn_posthoc(data, groups):
     return comparisons
 
 
+
+
+def two_way_anova(df, values, confidence_level):
+    dependent_variable = values['dependent_variable']
+    factor1 = values['factor1']
+    factor2 = values['factor2']
+    anova_type = int(values['anova_type'])  # Retrieve ANOVA type from values
+    
+    # Create a copy of the DataFrame with just the relevant columns
+    df_relevant = df[[dependent_variable, factor1, factor2]].copy()
+
+    # Create a mapping for renaming columns
+    original_columns = {dependent_variable: 'dependent_variable', factor1: 'factor1', factor2: 'factor2'}
+    df_relevant = df_relevant.rename(columns=original_columns)
+
+    # Use the temporary names in the formula
+    formula = 'dependent_variable ~ C(factor1) + C(factor2) + C(factor1):C(factor2)'
+    model = ols(formula, data=df_relevant).fit()
+    anova_table = anova_lm(model, typ=anova_type)
+
+    summary_stats = df_relevant.groupby(['factor1', 'factor2'])['dependent_variable'].agg(['count', 'sum', 'mean', 'var']).reset_index()
+    summary_stats = summary_stats.rename(columns={'var': 'variance', 'factor1': 'Factor 1', 'factor2': 'Factor 2'})
+
+    # Convert summary statistics to the expected format
+    formatted_summary_stats = {}
+    for _, row in summary_stats.iterrows():
+        group_name = f"{row['Factor 1']} - {row['Factor 2']}"
+        formatted_summary_stats[group_name] = {
+            'count': int(row['count']),
+            'sum': float(row['sum']),
+            'mean': float(row['mean']),
+            'variance': float(row['variance'])
+        }
+
+    anova_table['mean_sq'] = anova_table['sum_sq'] / anova_table['df']
+
+    df_between = anova_table['df'].iloc[0]
+    df_within = anova_table['df'].iloc[1]
+    f_critical = f.ppf(1 - (1 - confidence_level), df_between, df_within)
+
+    # Prepare the formatted ANOVA table
+    formatted_anova_table = [
+        {
+            'source': 'Factor 1',
+            'SS': anova_table['sum_sq']['C(factor1)'],
+            'df': anova_table['df']['C(factor1)'],
+            'MS': anova_table['mean_sq']['C(factor1)'],
+            'F': anova_table['F']['C(factor1)'],
+            'p': anova_table['PR(>F)']['C(factor1)']
+        },
+        {
+            'source': 'Factor 2',
+            'SS': anova_table['sum_sq']['C(factor2)'],
+            'df': anova_table['df']['C(factor2)'],
+            'MS': anova_table['mean_sq']['C(factor2)'],
+            'F': anova_table['F']['C(factor2)'],
+            'p': anova_table['PR(>F)']['C(factor2)']
+        },
+        {
+            'source': 'Interaction',
+            'SS': anova_table['sum_sq']['C(factor1):C(factor2)'],
+            'df': anova_table['df']['C(factor1):C(factor2)'],
+            'MS': anova_table['mean_sq']['C(factor1):C(factor2)'],
+            'F': anova_table['F']['C(factor1):C(factor2)'],
+            'p': anova_table['PR(>F)']['C(factor1):C(factor2)']
+        },
+        {
+            'source': 'Within Group (Error)',
+            'SS': anova_table['sum_sq']['Residual'],
+            'df': anova_table['df']['Residual'],
+            'MS': anova_table['mean_sq']['Residual'],
+            'F': None,
+            'p': None
+        }
+    ]
+
+    result = {
+        'summary_statistics': formatted_summary_stats,
+        'anova_table': formatted_anova_table,
+        'f_critical': f_critical,
+        'test_results': {
+            'test': 'TwoWayANOVA',
+            'null_hypothesis': f"There is no interaction effect between {factor1} and {factor2} on {dependent_variable}.",
+            'alternative_hypothesis': f"There is an interaction effect between {factor1} and {factor2} on {dependent_variable}.",
+            'p_value': anova_table['PR(>F)'].iloc[0],
+            'reject_null': "Reject the null hypothesis" if anova_table['PR(>F)'].iloc[0] < (1 - confidence_level) else "Fail to reject the null hypothesis",
+            'decision': "Reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100) if anova_table['PR(>F)'].iloc[0] < (1 - confidence_level) else "Fail to reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100),
+        }
+    }
+
+    return result
+
+
+
+
+
+
 def correlation_test(df, values):
     columns = values['columns']
     corr_type = values.get('correlation_type', 'pearson')
@@ -480,10 +575,144 @@ def calculate_correlation(df, columns, corr_type, nan_handling):
 
     return correlation_matrix, p_value_matrix
 
-def calculate_summary_statistics(data):
+def calculate_summary_statistics(data, confidence_level=0.95):
+    count = int(len(data))
+    mean = float(np.mean(data))
+    variance = float(np.var(data, ddof=1))
+    ci = calculate_confidence_interval(data, confidence_level)
+    ci_lower_label = f'Lower {round((1 - confidence_level) / 2 * 100, 4)}%'
+    ci_upper_label = f'Upper {round((1 + confidence_level) / 2 * 100,4)}%'
+    
     return {
-        'count': int(len(data)),
+        'count': count,
         'sum': float(np.sum(data)),
-        'mean': float(np.mean(data)),
-        'variance': float(np.var(data, ddof=1))
+        'mean': mean,
+        'variance': variance,
+        ci_lower_label: ci[0],
+        ci_upper_label: ci[1]
     }
+
+
+def calculate_confidence_interval(data, confidence=0.95):
+    n = len(data)
+    mean = np.mean(data)
+    std_err = stats.sem(data)
+    h = std_err * stats.t.ppf((1 + confidence) / 2, n - 1)
+    return [mean - h, mean + h]
+
+
+
+
+
+
+
+def f_test(df, values, confidence_level):
+    comparison_type = values['comparison_type']
+    comparison = values['comparison']
+
+    if comparison == '=':
+        alternative = 'two-sided'
+    elif comparison == '<':
+        alternative = 'less'
+    elif comparison == '>':
+        alternative = 'greater'
+
+    if comparison_type == 'Compare two columns':
+        column1 = values['variable1']
+        column2 = values['variable2']
+        group1, group2 = df[column1].dropna(), df[column2].dropna()
+        group_names = [column1, column2]
+        if comparison == '=':
+            null_hypothesis = f"The variance of {column1} is equal to the variance of {column2}"
+            alternative_hypothesis = f"The variance of {column1} is not equal to the variance of {column2}"
+        elif comparison == '<':
+            null_hypothesis = f"The variance of {column1} is >= the variance of {column2}"
+            alternative_hypothesis = f"The variance of {column1} is < the variance of {column2}"
+        elif comparison == '>':
+            null_hypothesis = f"The variance of {column1} is <= the variance of {column2}"
+            alternative_hypothesis = f"The variance of {column1} is > the variance of {column2}"
+    else:
+        numeric_variable = values['numeric_variable']
+        categorical_variable = values['categorical_variable']
+        categories = list(values['categories'])
+        group1 = df[df[categorical_variable] == categories[0]][numeric_variable].dropna()
+        group2 = df[df[categorical_variable] == categories[1]][numeric_variable].dropna()
+        group_names = categories
+        if comparison == '=':
+            null_hypothesis = f"The variance of {numeric_variable} is equal across {categorical_variable} categories {categories[0]} and {categories[1]}"
+            alternative_hypothesis = f"The variance of {numeric_variable} is not equal across {categorical_variable} categories {categories[0]} and {categories[1]}"
+        elif comparison == '<':
+            null_hypothesis = f"The variance of {numeric_variable} for {categories[0]} group is >= the variance for {categories[1]} group"
+            alternative_hypothesis = f"The variance of {numeric_variable} for {categories[0]} group is < the variance for {categories[1]} group"
+        elif comparison == '>':
+            null_hypothesis = f"The variance of {numeric_variable} for {categories[0]} group is <= the variance for {categories[1]} group"
+            alternative_hypothesis = f"The variance of {numeric_variable} for {categories[0]} group is > the variance for {categories[1]} group"
+
+    var1 = np.var(group1, ddof=1)
+    var2 = np.var(group2, ddof=1)
+    f_stat = var1 / var2
+    dfn = len(group1) - 1
+    dfd = len(group2) - 1
+
+    if comparison == '=':
+        p_value = 2 * min(stats.f.cdf(f_stat, dfn, dfd), 1 - stats.f.cdf(f_stat, dfn, dfd))
+    elif comparison == '<':
+        p_value = stats.f.cdf(f_stat, dfn, dfd)
+    else:  # comparison == '>'
+        p_value = 1 - stats.f.cdf(f_stat, dfn, dfd)
+
+    decision = "Reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100) if p_value < (1 - confidence_level) else "Fail to reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100)
+
+    result = {
+        'test': 'FTest',
+        'f_stat': f_stat,
+        'p_value': p_value,
+        'null_hypothesis': null_hypothesis,
+        'alternative_hypothesis': alternative_hypothesis,
+        'decision': decision
+    }
+
+    summary_statistics = {
+        group_names[0]: calculate_summary_statistics(group1, confidence_level),
+        group_names[1]: calculate_summary_statistics(group2, confidence_level)
+    }
+
+    return {
+        'summary_statistics': summary_statistics,
+        'test_results': result
+    }
+
+
+
+
+
+
+def chi_square_test(df, values, confidence_level):
+    categorical_variable1 = values['categorical_variable1']
+    categorical_variable2 = values['categorical_variable2']
+
+    # Drop rows with NaN values in the specified columns
+    df = df.dropna(subset=[categorical_variable1, categorical_variable2])
+
+    contingency_table = pd.crosstab(df[categorical_variable1], df[categorical_variable2])
+    chi2_stat, p_value, dof, expected = chi2_contingency(contingency_table)
+
+    decision = "Reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100) if p_value < (1 - confidence_level) else "Fail to reject the null hypothesis at the {0:.1f}% confidence level".format(confidence_level * 100)
+
+    null_hypothesis = f"There is no association between {categorical_variable1} and {categorical_variable2}."
+    alternative_hypothesis = f"There is an association between {categorical_variable1} and {categorical_variable2}."
+
+
+
+    return {
+        'test_results': {
+            'test': 'ChiSquareTest',
+            'chi2_stat': chi2_stat,
+            'p_value': p_value,
+            'dof': dof,
+            'null_hypothesis': null_hypothesis,
+            'alternative_hypothesis': alternative_hypothesis,
+            'decision': decision
+        }
+    }
+
