@@ -320,11 +320,9 @@ def newColumn_from_condition(columnCreationInput, df):
 def calculateColumnStats(df, column):
         try:
             column_data = df[column].replace(r'^\s*$', np.nan, regex=True).astype(float)
-            print(column_data)
-            print("ssssssss")
+
             column_data = column_data.astype(float)
 
-            print(column_data)
             is_numeric = True
         except ValueError:
             column_data = df[column].astype(str)
@@ -367,13 +365,73 @@ def calculateColumnStats(df, column):
             }
             print(histogram_data)
 
-        response_data = {
+        column_stats_info = {
             "stats": stats,
             "histogram": histogram_data,
             "is_numeric": is_numeric
         }
         
-        return {"message": "Data received", "data": json.dumps(response_data)}
+        return   column_stats_info 
+
+
+
+
+
+def determine_column_type(df):
+    """
+    Determine the type of each column in the DataFrame.
+
+    :param df: DataFrame to analyze.
+    :return: Dictionary with column names as keys and their types as values.
+    """
+    column_types = {}
+
+    for column in df.columns:
+        unique_values = df[column].dropna().unique()
+
+        if pd.api.types.is_numeric_dtype(df[column]):
+            if len(unique_values) == 2:
+                column_types[column] = 'numeric binary'
+            else:
+                column_types[column] = 'numeric'
+        elif pd.api.types.is_string_dtype(df[column]):
+            if len(unique_values) <= 50:
+                if len(unique_values) == 2:
+                    column_types[column] = 'categorical binary'
+                else:
+                    column_types[column] = 'categorical'
+            else:
+                column_types[column] = 'text'
+        else:
+            column_types[column] = 'text'
+
+    return column_types
+
+
+
+
+def discretize_column(df, column_name, intervals):
+    """
+    Discretize a column in the DataFrame based on provided intervals.
+
+    :param df: DataFrame to modify.
+    :param column_name: The name of the column to discretize.
+    :param intervals: A list of dictionaries, each containing 'min', 'max', and 'value'.
+                      Example: [{'min': '-inf', 'max': '60', 'value': 1}, ...]
+    :return: Modified DataFrame with the discretized column.
+    """
+    def get_value(x):
+        for interval in intervals:
+            min_val = float(interval['min']) if interval['min'] != '-inf' else -np.inf
+            max_val = float(interval['max']) if interval['max'] != 'inf' else np.inf
+            if min_val <= x <= max_val:
+                return interval['value']
+        return x  # Return the original value if no interval matches
+    
+    df[column_name] = df[column_name].apply(get_value)
+    return df
+
+
 
 def handle_missing_values(df, column, method, value=None, group_by=None, interpolate_col=None, consider_nan_as_category=False, fit_to_train=True, test_df=None):
     if group_by and method in ["Mean", "Median", "Most Common"]:

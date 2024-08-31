@@ -78,7 +78,6 @@ def convert_data_types(csv_text, data_types):
     
     # Replace NaNs with None and convert to list of lists
     df = df.where(pd.notnull(df), None)
-    print(df)
     return [df.columns.tolist()] + df.values.tolist()
 
 
@@ -90,7 +89,6 @@ async def saveProject(user_id: str, project_id: str, instances: List[DataInstanc
     for idx, instance in enumerate(instances):
         instance_dict = instance.dict()
         instance_dict['id'] = idx
-        print(instance_dict)
 
         # Convert data to CSV and upload to Firebase Storage
         csv_data = convert_to_csv(instance_dict.pop('data'))
@@ -110,7 +108,6 @@ async def saveProject(user_id: str, project_id: str, instances: List[DataInstanc
         valid_instance_dict.pop('data', None)
         valid_instance_dict.pop('testData', None)
 
-        print(valid_instance_dict)
         instance_ref = db.collection('users').document(user_id).collection('projects').document(project_id).collection('datainstances').document(str(idx))
         instance_ref.set(valid_instance_dict)
 
